@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Business Book</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --paper:#f5f2ea; --paper-raised:#fbf9f4; --ink:#20242f; --ink-soft:#5b6070;
+    --line:#dcd6c6; --forest:#2f6f5e; --forest-deep:#1f4d41; --rust:#b5533c;
+    --rust-soft:#f1ded8; --gold:#a98330;
+    --shadow:0 1px 2px rgba(32,36,47,.06), 0 4px 14px rgba(32,36,47,.06);
+    --radius:14px; font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+  #app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--paper);position:relative;}
+
+  header.top{padding:22px 20px 16px;background:var(--paper);position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);}
+  header.top .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);display:flex;align-items:center;gap:8px;margin-bottom:4px;justify-content:space-between;}
+  header.top .eyebrow .dot{display:flex;align-items:center;gap:8px;}
+  header.top .eyebrow .dot::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--forest);display:inline-block;}
+  header.top .eyebrow button{background:none;border:none;color:var(--ink-soft);font-size:11px;text-decoration:underline;text-underline-offset:2px;}
+  header.top h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;margin:0;font-weight:600;letter-spacing:-.01em;}
+  .stat-row{display:flex;gap:10px;margin-top:14px;}
+  .stat-chip{flex:1;background:var(--paper-raised);border:1px solid var(--line);border-radius:12px;padding:9px 12px;}
+  .stat-chip .label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);}
+  .stat-chip .value{font-family:'Courier New',monospace;font-size:16px;font-weight:700;margin-top:2px;}
+  .stat-chip.pos .value{color:var(--forest-deep);}
+  .stat-chip.neg .value{color:var(--rust);}
+
+  main{flex:1;padding:16px 16px 100px;overflow-y:auto;}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 12px;}
+  .section-head h2{font-family:Georgia,serif;font-size:19px;margin:0;}
+  .add-btn{background:var(--forest);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;box-shadow:var(--shadow);}
+  .add-btn:active{transform:scale(.97);}
+
+  .card{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);position:relative;}
+  .card .row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .card .title{font-weight:700;font-size:15px;}
+  .card .sub{color:var(--ink-soft);font-size:12.5px;margin-top:2px;line-height:1.4;}
+  .card .amount{font-family:'Courier New',monospace;font-weight:700;font-size:15px;white-space:nowrap;}
+  .amount.neg{color:var(--rust);} .amount.pos{color:var(--forest-deep);}
+  .card .tag{display:inline-block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;background:#eee7d6;color:#6b5a2c;border-radius:6px;padding:2px 7px;margin-top:6px;margin-right:5px;}
+  .card .tag.status-sold{background:#e3ece9;color:var(--forest-deep);}
+  .card .tag.status-returned{background:var(--rust-soft);color:var(--rust);}
+  .card .tag.status-stock{background:#eee7d6;color:var(--gold);}
+  .card .thumb{width:46px;height:46px;border-radius:9px;object-fit:cover;border:1px solid var(--line);flex-shrink:0;}
+  .card-top{display:flex;gap:10px;}
+  .card-body{flex:1;min-width:0;}
+  .card .actions{display:flex;gap:14px;margin-top:8px;}
+  .card .actions button{background:none;border:none;padding:0;font-size:12px;color:var(--ink-soft);font-weight:600;text-decoration:underline;text-underline-offset:2px;}
+  .card .actions button.danger{color:var(--rust);}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--ink-soft);}
+  .empty .glyph{font-size:30px;margin-bottom:10px;}
+  .empty p{margin:4px 0;font-size:13.5px;line-height:1.5;}
+
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  .dash-tile{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);}
+  .dash-tile .label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);}
+  .dash-tile .value{font-family:'Courier New',monospace;font-size:21px;font-weight:700;margin-top:4px;}
+  .dash-tile.wide{grid-column:1/-1;}
+  .feed-row{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px dashed var(--line);}
+  .feed-row:last-child{border-bottom:none;}
+  .feed-row .who{color:var(--ink-soft);font-size:11.5px;}
+
+  nav.bottom{position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;background:var(--paper-raised);border-top:1px solid var(--line);display:flex;padding:8px 6px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -2px 10px rgba(32,36,47,.05);z-index:20;}
+  nav.bottom button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:var(--ink-soft);font-size:10px;font-weight:600;letter-spacing:.02em;}
+  nav.bottom button svg{width:20px;height:20px;stroke:var(--ink-soft);fill:none;stroke-width:1.8;}
+  nav.bottom button.active{color:var(--forest-deep);}
+  nav.bottom button.active svg{stroke:var(--forest-deep);}
+
+  .overlay{position:fixed;inset:0;background:rgba(32,36,47,.4);z-index:40;display:none;align-items:flex-end;}
+  .overlay.show{display:flex;}
+  .overlay.center{align-items:center;justify-content:center;padding:20px;}
+  .sheet{background:var(--paper);width:100%;max-width:520px;margin:0 auto;border-radius:20px 20px 0 0;max-height:88vh;overflow-y:auto;padding:18px 18px calc(24px + env(safe-area-inset-bottom));animation:up .22s ease;}
+  .overlay.center .sheet{border-radius:20px;max-height:none;}
+  @keyframes up{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-handle{width:38px;height:4px;background:var(--line);border-radius:2px;margin:0 auto 14px;}
+  .sheet h3{font-family:Georgia,serif;font-size:19px;margin:0 0 14px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-size:14.5px;background:#fff;font-family:inherit;color:var(--ink);}
+  .field textarea{resize:vertical;min-height:56px;}
+  .photo-input{border:1.5px dashed var(--line);border-radius:12px;padding:14px;text-align:center;color:var(--ink-soft);font-size:13px;background:#fff;cursor:pointer;position:relative;}
+  .photo-preview-wrap{display:flex;align-items:center;gap:10px;}
+  .photo-preview-wrap img{width:60px;height:60px;object-fit:cover;border-radius:9px;border:1px solid var(--line);}
+  .sheet .save-btn{width:100%;background:var(--forest-deep);color:#fff;border:none;border-radius:11px;padding:14px;font-size:15px;font-weight:700;margin-top:6px;}
+  .sheet .cancel-btn{width:100%;background:none;border:none;color:var(--ink-soft);padding:10px;font-size:13.5px;}
+  .sheet .error{color:var(--rust);font-size:13px;margin-bottom:10px;}
+
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;z-index:60;opacity:0;transition:opacity .25s;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .hidden{display:none !important;}
+  .config-warning{padding:40px 24px;text-align:center;color:var(--ink-soft);font-size:14px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div id="configWarning" class="config-warning hidden">
+  Open this file in a text editor and fill in <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>
+  near the top of the &lt;script&gt; section, using the values from your Supabase project's
+  Settings &rarr; API page.
+</div>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="eyebrow">
+      <span class="dot">Ledger &amp; Stock</span>
+      <button id="logoutBtn">Sign out</button>
+    </div>
+    <h1>Business Book</h1>
+    <div class="stat-row">
+      <div class="stat-chip pos"><div class="label">Sales</div><div class="value" id="chipSales">$0</div></div>
+      <div class="stat-chip neg"><div class="label">Expenses</div><div class="value" id="chipExpenses">$0</div></div>
+      <div class="stat-chip" id="chipProfitWrap"><div class="label">Net</div><div class="value" id="chipProfit">$0</div></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel active" id="panel-dashboard">
+      <div class="dash-grid">
+        <div class="dash-tile"><div class="label">In Stock</div><div class="value" id="dashInStock">0</div></div>
+        <div class="dash-tile"><div class="label">Miles Driven</div><div class="value" id="dashMiles">0</div></div>
+        <div class="dash-tile"><div class="label">Refunds Out</div><div class="value" id="dashRefunds">$0</div></div>
+        <div class="dash-tile"><div class="label">Items Sold</div><div class="value" id="dashSold">0</div></div>
+        <div class="dash-tile wide">
+          <div class="label" style="margin-bottom:8px;">Recent Activity</div>
+          <div id="dashFeed"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-inventory">
+      <div class="section-head"><h2>Inventory</h2><button class="add-btn" onclick="openForm('inventory')">+ Item</button></div>
+      <div id="list-inventory"></div>
+    </section>
+
+    <section class="panel" id="panel-expenses">
+      <div class="section-head"><h2>Expenses</h2><button class="add-btn" onclick="openForm('expenses')">+ Expense</button></div>
+      <div id="list-expenses"></div>
+    </section>
+
+    <section class="panel" id="panel-sales">
+      <div class="section-head"><h2>Sales</h2><button class="add-btn" onclick="openForm('sales')">+ Sale</button></div>
+      <div id="list-sales"></div>
+    </section>
+
+    <section class="panel" id="panel-refunds">
+      <div class="section-head"><h2>Refunds</h2><button class="add-btn" onclick="openForm('refunds')">+ Refund</button></div>
+      <div id="list-refunds"></div>
+    </section>
+  </main>
+
+  <nav class="bottom">
+    <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      Home
+    </button>
+    <button class="tab-btn" data-tab="inventory" onclick="switchTab('inventory')">
+      <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
+      Stock
+    </button>
+    <button class="tab-btn" data-tab="expenses" onclick="switchTab('expenses')">
+      <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
+      Expenses
+    </button>
+    <button class="tab-btn" data-tab="sales" onclick="switchTab('sales')">
+      <svg viewBox="0 0 24 24"><path d="M3 12l4-7h10l4 7-9 9-9-9z"/></svg>
+      Sales
+    </button>
+    <button class="tab-btn" data-tab="refunds" onclick="switchTab('refunds')">
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 12V6M3 12h6"/></svg>
+      Refunds
+    </button>
+  </nav>
+</div>
+
+<div class="overlay center" id="loginOverlay">
+  <div class="sheet" style="max-width:340px;">
+    <h3>Sign in</h3>
+    <div class="error hidden" id="loginError"></div>
+    <form id="loginForm">
+      <div class="field"><label>Email</label><input type="email" name="email" required></div>
+      <div class="field"><label>Password</label><input type="password" name="password" required></div>
+      <button type="submit" class="save-btn">Sign in</button>
+    </form>
+    <p style="font-size:12px;color:var(--ink-soft);margin-top:12px;line-height:1.5;">
+      Accounts are created by your admin in the Supabase dashboard
+      (Authentication &rarr; Users &rarr; Add user). There's no public sign-up.
+    </p>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div id="sheetContent"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ====================== CONFIG — fill these in ====================== */
+const SUPABASE_URL = "https://kvygresngczduqatsbmx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2eWdyZXNuZ2N6ZHVxYXRzYm14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4MDk1ODMsImV4cCI6MjA5OTM4NTU4M30.qBtl-DP1ThArqf6742S5bvqg3x1EPx96mhiyuLlLKlw";
+/* ======================================================================= */
+
+let sb;
+let state = { inventory:[], expenses:[], sales:[], refunds:[] };
+let editing = { type:null, id:null };
+const COLLECTIONS = ['inventory','expenses','sales','refunds'];
+
+function boot(){
+  if(!SUPABASE_URL || SUPABASE_URL.startsWith('YOUR_') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.startsWith('YOUR_')){
+    document.getElementById('configWarning').classList.remove('hidden');
+    return;
+  }
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(session){
+      document.getElementById('loginOverlay').classList.remove('show');
+      document.getElementById('app').classList.remove('hidden');
+      fetchAll();
+    } else {
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('loginOverlay').classList.add('show');
+    }
+  });
+
+  sb.auth.getSession().then(({data})=>{
+    if(!data.session){
+      document.getElementById('loginOverlay').classList.add('show');
+    }
+  });
+
+  document.getElementById('loginForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const errEl = document.getElementById('loginError');
+    errEl.classList.add('hidden');
+    const {error} = await sb.auth.signInWithPassword({email: fd.get('email'), password: fd.get('password')});
+    if(error){
+      errEl.textContent = error.message;
+      errEl.classList.remove('hidden');
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', ()=> sb.auth.signOut());
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible' && sb) fetchAll();
+  });
+}
+
+/* ============ DATA ============ */
+async function fetchAll(){
+  for(const table of COLLECTIONS){
+    const {data, error} = await sb.from(table).select('*').order('created_at', {ascending:false});
+    if(error){ console.error(table, error); state[table] = []; }
+    else state[table] = data || [];
+  }
+  renderAll();
+}
+
+/* ============ TABS ============ */
+function switchTab(tab){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+}
+
+/* ============ RENDER ============ */
+function money(n){
+  const v = Number(n)||0;
+  return (v<0?'-$':'$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtDate(d){
+  if(!d) return '';
+  const dt = new Date(d+'T00:00:00');
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function esc(s){
+  if(s===undefined||s===null) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function emptyState(glyph, text){
+  return `<div class="empty"><div class="glyph">${glyph}</div><p>${text}</p></div>`;
+}
+
+function renderAll(){
+  renderDashboard(); renderInventory(); renderExpenses(); renderSales(); renderRefunds();
+}
+
+function renderDashboard(){
+  const totalSales = state.sales.reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalExpenses = state.expenses.reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalRefunds = state.refunds.reduce((s,r)=>s+Number(r.amount||0),0);
+  const miles = state.expenses.reduce((s,r)=>s+Number(r.miles||0),0);
+  const inStock = state.inventory.filter(i=>i.status==='stock').length;
+  const sold = state.inventory.filter(i=>i.status==='sold').length;
+
+  document.getElementById('chipSales').textContent = money(totalSales);
+  document.getElementById('chipExpenses').textContent = money(totalExpenses);
+  const net = totalSales - totalExpenses - totalRefunds;
+  document.getElementById('chipProfit').textContent = money(net);
+  document.getElementById('chipProfitWrap').className = 'stat-chip ' + (net>=0?'pos':'neg');
+
+  document.getElementById('dashInStock').textContent = inStock;
+  document.getElementById('dashMiles').textContent = miles.toLocaleString();
+  document.getElementById('dashRefunds').textContent = money(totalRefunds);
+  document.getElementById('dashSold').textContent = sold;
+
+  const feed = [];
+  state.expenses.forEach(r=>feed.push({date:r.date, text:`Expense · ${r.type||'—'}`, sub:r.description, amt:-r.amount}));
+  state.sales.forEach(r=>feed.push({date:r.date, text:`Sale · ${r.platform||'—'}`, sub:r.item_no?('Item #'+r.item_no):'', amt:r.amount}));
+  state.refunds.forEach(r=>feed.push({date:r.date, text:`Refund`, sub:r.reason, amt:-r.amount}));
+  feed.sort((a,b)=> new Date(b.date||0) - new Date(a.date||0));
+  const feedEl = document.getElementById('dashFeed');
+  feedEl.innerHTML = feed.length===0
+    ? `<div style="color:var(--ink-soft);font-size:13px;">Nothing logged yet. Add your first expense or sale to see it here.</div>`
+    : feed.slice(0,8).map(f=>`
+      <div class="feed-row">
+        <div><div>${f.text}</div><div class="who">${f.sub||''}</div></div>
+        <div style="text-align:right;">
+          <div class="${f.amt<0?'amount neg':'amount pos'}" style="font-size:13px;">${money(f.amt)}</div>
+          <div class="who">${fmtDate(f.date)}</div>
+        </div>
+      </div>`).join('');
+}
+
+function renderInventory(){
+  const el = document.getElementById('list-inventory');
+  const items = state.inventory;
+  if(items.length===0){ el.innerHTML = emptyState('📦','No inventory yet. Add an item to start tracking stock and photos.'); return; }
+  el.innerHTML = items.map(i=>`
+    <div class="card"><div class="card-top">
+      ${i.photo_url ? `<img class="thumb" src="${i.photo_url}">` : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;background:#eee7d6;color:var(--ink-soft);font-size:10px;">no photo</div>`}
+      <div class="card-body">
+        <div class="row1"><div><div class="title">${esc(i.name)||'Untitled item'}</div>
+          <div class="sub">${i.item_no?('#'+esc(i.item_no)+' · '):''}Qty ${i.qty||1}${i.cost?(' · Cost '+money(i.cost)):''}</div></div></div>
+        <span class="tag status-${i.status||'stock'}">${(i.status||'stock').replace('stock','in stock')}</span>
+        <div class="actions"><button onclick="openForm('inventory','${i.id}')">Edit</button><button class="danger" onclick="removeItem('inventory','${i.id}')">Delete</button></div>
+      </div>
+    </div></div>`).join('');
+}
+
+function renderExpenses(){
+  const el = document.getElementById('list-expenses');
+  const items = state.expenses;
+  if(items.length===0){ el.innerHTML = emptyState('🧾','No expenses logged. Snap a receipt to add your first one.'); return; }
+  el.innerHTML = items.map(r=>`
+    <div class="card"><div class="card-top">
+      ${r.photo_url ? `<img class="thumb" src="${r.photo_url}">` : ''}
+      <div class="card-body">
+        <div class="row1"><div><div class="title">${esc(r.type)||'Expense'}</div><div class="sub">${fmtDate(r.date)}${r.miles?(' · '+r.miles+' mi'):''}</div></div>
+        <div class="amount neg">${money(r.amount)}</div></div>
+        ${r.description?`<div class="sub" style="margin-top:5px;">${esc(r.description)}</div>`:''}
+        <div class="actions"><button onclick="openForm('expenses','${r.id}')">Edit</button><button class="danger" onclick="removeItem('expenses','${r.id}')">Delete</button></div>
+      </div>
+    </div></div>`).join('');
+}
+
+function renderSales(){
+  const el = document.getElementById('list-sales');
+  const items = state.sales;
+  if(items.length===0){ el.innerHTML = emptyState('💵','No sales yet. Log a sale to track revenue by platform.'); return; }
+  el.innerHTML = items.map(r=>`
+    <div class="card">
+      <div class="row1"><div><div class="title">${esc(r.platform)||'Sale'}</div><div class="sub">${fmtDate(r.date)} · ${esc(r.payment_type)||''}${r.item_no?(' · Item #'+esc(r.item_no)):''}</div></div>
+      <div class="amount pos">${money(r.amount)}</div></div>
+      ${r.notes?`<div class="sub" style="margin-top:5px;">${esc(r.notes)}</div>`:''}
+      <div class="actions"><button onclick="openForm('sales','${r.id}')">Edit</button><button class="danger" onclick="removeItem('sales','${r.id}')">Delete</button></div>
+    </div>`).join('');
+}
+
+function renderRefunds(){
+  const el = document.getElementById('list-refunds');
+  const items = state.refunds;
+  if(items.length===0){ el.innerHTML = emptyState('↩️','No refunds recorded.'); return; }
+  el.innerHTML = items.map(r=>`
+    <div class="card">
+      <div class="row1"><div><div class="title">Refund${r.item_no?(' · Item #'+esc(r.item_no)):''}</div><div class="sub">${fmtDate(r.date)}</div></div>
+      <div class="amount neg">${money(r.amount)}</div></div>
+      ${r.reason?`<div class="sub" style="margin-top:5px;">${esc(r.reason)}</div>`:''}
+      <div class="actions"><button onclick="openForm('refunds','${r.id}')">Edit</button><button class="danger" onclick="removeItem('refunds','${r.id}')">Delete</button></div>
+    </div>`).join('');
+}
+
+async function removeItem(type,id){
+  if(!confirm('Delete this entry? This cannot be undone.')) return;
+  const {error} = await sb.from(type).delete().eq('id', id);
+  if(error){ showToast("Couldn't delete"); console.error(error); return; }
+  await fetchAll();
+  showToast('Deleted');
+}
+
+/* ============ FORMS ============ */
+const FIELD_DEFS = {
+  inventory:[
+    {k:'name', label:'Item Name', type:'text', required:true},
+    {k:'item_no', label:'Item #', type:'text'},
+    {k:'qty', label:'Quantity', type:'number', default:1},
+    {k:'cost', label:'Cost ($)', type:'number', step:'0.01'},
+    {k:'status', label:'Status', type:'select', options:[['stock','In Stock'],['sold','Sold'],['returned','Returned']]},
+    {k:'photo_url', label:'Photo', type:'photo', folder:'inventory'},
+    {k:'notes', label:'Notes', type:'textarea'},
+  ],
+  expenses:[
+    {k:'date', label:'Date', type:'date', required:true},
+    {k:'amount', label:'Expense Amount ($)', type:'number', step:'0.01', required:true},
+    {k:'type', label:'Expense Type', type:'select', options:[['Supplies','Supplies'],['Shipping','Shipping'],['Mileage','Mileage'],['Software/Fees','Software/Fees'],['Inventory Purchase','Inventory Purchase'],['Other','Other']]},
+    {k:'miles', label:'Miles Driven', type:'number'},
+    {k:'description', label:'Description', type:'textarea'},
+    {k:'photo_url', label:'Receipt / PO Photo', type:'photo', folder:'expenses'},
+  ],
+  sales:[
+    {k:'date', label:'Sale Date', type:'date', required:true},
+    {k:'amount', label:'Sale Amount ($)', type:'number', step:'0.01', required:true},
+    {k:'payment_type', label:'Payment Type', type:'select', options:[['Cash','Cash'],['Card','Card'],['PayPal','PayPal'],['Venmo/CashApp','Venmo/CashApp'],['Platform Payout','Platform Payout'],['Other','Other']]},
+    {k:'item_no', label:'Item #', type:'text'},
+    {k:'platform', label:'Platform', type:'text'},
+    {k:'notes', label:'Notes', type:'textarea'},
+  ],
+  refunds:[
+    {k:'date', label:'Date', type:'date', required:true},
+    {k:'amount', label:'Amount Refunded ($)', type:'number', step:'0.01', required:true},
+    {k:'item_no', label:'Item #', type:'text'},
+    {k:'reason', label:'Reason for Refund', type:'textarea'},
+  ],
+};
+const TITLES = {inventory:'Inventory Item', expenses:'Expense', sales:'Sale', refunds:'Refund'};
+
+function openForm(type, id){
+  editing = {type, id: id||null};
+  const record = id ? state[type].find(x=>x.id===id) : {};
+  const fields = FIELD_DEFS[type];
+  let html = `<h3>${id?'Edit':'Add'} ${TITLES[type]}</h3><form id="entryForm">`;
+  fields.forEach(f=>{
+    const val = record && record[f.k]!==undefined && record[f.k]!==null ? record[f.k] : (f.default!==undefined?f.default:'');
+    html += `<div class="field"><label>${f.label}${f.required?' *':''}</label>`;
+    if(f.type==='select'){
+      html += `<select name="${f.k}">` + f.options.map(([v,l])=>`<option value="${v}" ${val===v?'selected':''}>${l}</option>`).join('') + `</select>`;
+    } else if(f.type==='textarea'){
+      html += `<textarea name="${f.k}">${esc(val)}</textarea>`;
+    } else if(f.type==='photo'){
+      html += `<div id="photoZone" data-folder="${f.folder}">
+        ${val ? `<div class="photo-preview-wrap"><img src="${val}"><button type="button" onclick="clearPhoto()" style="border:none;background:none;color:var(--rust);font-size:12px;font-weight:600;">Remove photo</button></div>`
+              : `<label class="photo-input" id="photoLabel">📷 Tap to take or choose a photo<input type="file" accept="image/*" capture="environment" style="position:absolute;inset:0;opacity:0;" onchange="handlePhoto(event)"></label>`}
+      </div>
+      <input type="hidden" name="photo_url" id="photoHidden" value="${val?esc(val):''}">`;
+    } else {
+      html += `<input type="${f.type}" name="${f.k}" value="${esc(val)}" ${f.step?`step="${f.step}"`:''}>`;
+    }
+    html += `</div>`;
+  });
+  html += `<button type="submit" class="save-btn">Save ${TITLES[type]}</button>
+  <button type="button" class="cancel-btn" onclick="closeForm()">Cancel</button></form>`;
+  document.getElementById('sheetContent').innerHTML = html;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('entryForm').addEventListener('submit', submitForm);
+}
+
+function closeForm(){ document.getElementById('overlay').classList.remove('show'); }
+
+async function handlePhoto(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const zone = document.getElementById('photoZone');
+  const folder = zone.dataset.folder;
+  zone.innerHTML = `<div class="photo-input">Uploading…</div>`;
+  try{
+    const blob = await compressImage(file, 1200, 0.6);
+    const filename = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+    const {error: upErr} = await sb.storage.from('photos').upload(filename, blob, {contentType:'image/jpeg'});
+    if(upErr) throw upErr;
+    const {data} = sb.storage.from('photos').getPublicUrl(filename);
+    document.getElementById('photoHidden').value = data.publicUrl;
+    zone.innerHTML = `<div class="photo-preview-wrap"><img src="${data.publicUrl}"><button type="button" onclick="clearPhoto()" style="border:none;background:none;color:var(--rust);font-size:12px;font-weight:600;">Remove photo</button></div>`;
+  }catch(e){
+    console.error(e);
+    showToast("Photo upload failed");
+    clearPhoto();
+  }
+}
+function clearPhoto(){
+  const zone = document.getElementById('photoZone');
+  document.getElementById('photoHidden').value = '';
+  zone.innerHTML = `<label class="photo-input" id="photoLabel">📷 Tap to take or choose a photo<input type="file" accept="image/*" capture="environment" style="position:absolute;inset:0;opacity:0;" onchange="handlePhoto(event)"></label>`;
+}
+
+function compressImage(file, maxDim, quality){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let {width,height} = img;
+        if(width>height && width>maxDim){ height*=maxDim/width; width=maxDim; }
+        else if(height>maxDim){ width*=maxDim/height; height=maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img,0,0,width,height);
+        canvas.toBlob(blob=> blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function submitForm(evt){
+  evt.preventDefault();
+  const form = evt.target;
+  const fd = new FormData(form);
+  const {type, id} = editing;
+  const record = {};
+  FIELD_DEFS[type].forEach(f=>{
+    let v = fd.get(f.k);
+    if(f.type==='number') v = v===''? null : Number(v);
+    if(f.type==='photo') v = v===''? null : v;
+    record[f.k] = v;
+  });
+  let error;
+  if(id){
+    ({error} = await sb.from(type).update(record).eq('id', id));
+  } else {
+    ({error} = await sb.from(type).insert([record]));
+  }
+  if(error){
+    showToast("Couldn't save — " + error.message);
+    console.error(error);
+    return;
+  }
+  closeForm();
+  await fetchAll();
+  showToast('Saved');
+}
+
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeForm(); });
+
+boot();
+</script>
+</body>
+</html>
